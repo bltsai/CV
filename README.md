@@ -1,10 +1,20 @@
 # Performance testing
-You need opencv 3 to run the programs
+You need opencv 3 to run the programs. For camera capture on Pi, you may need pip3 install picamera.
 
 To test camera, please specify the resolution in the format WIDTHxHEIGHT like 1280x720 and frame per second like 15, 20, 30, etc.
 
 ```bash
 python3 cam.py <WIDTH>x<HEIGHT> <FPS>
+```
+
+Before running fast capture, you need to pip3 install psutil
+For usb webcam:
+```bash
+python3 cam_webcam_speedup.py <WIDTH>x<HEIGHT> <FPS> <1 or 0 for MJPG>
+```
+For pi:
+```bash
+python3 cam_piccam_speedup.py <WIDTH>x<HEIGHT> <FPS>
 ```
 
 To test tracking, you can use the videos in the team drive under Test/ folder
