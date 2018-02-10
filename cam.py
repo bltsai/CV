@@ -1,7 +1,7 @@
 import cv2
 import sys
 
-def webcam():
+def webcam(resolution, fps_set):
     video = cv2.VideoCapture(0)
 
     # Exit if video not opened.
@@ -9,9 +9,10 @@ def webcam():
         print ("Could not open video")
         sys.exit()
 
-    video.set(3, 1280)
-    video.set(4, 720)
     video.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
+    video.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+    video.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
+    # video.set(cv2.CAP_PROP_FPS, fps_set)
 
     # Read first frame.
     ok, frame = video.read()
@@ -44,8 +45,8 @@ def webcam():
     except KeyboardInterrupt:
         pass
 
-
-    print(times, sum(times)/len(times))
+    print("elapsed %.4f seconds" % (sum(times)/len(times)))
+    print("fps", len(times)/sum(times))
 
 
 def picam(resolution, fps_set):
@@ -74,8 +75,8 @@ def picam(resolution, fps_set):
             times.append(count/freq)
 
             rawCapture.truncate(0)
-            k = cv2.waitKey(1) & 0xff
-            if k == 113 : break
+            # k = cv2.waitKey(1) & 0xff
+            # if k == 113 : break
 
             timer = cv2.getTickCount()
             if ((timer-start)/freq > 5.0): break
@@ -89,10 +90,11 @@ def picam(resolution, fps_set):
         camera.close()
         sys.exit()
 
-    print(times, sum(times)/len(times))
+    print("elapsed %.4f seconds" % (sum(times)/len(times)))
+    print("fps", len(times)/sum(times))
 
 if __name__ == '__main__' :
-    resolution = (int(i) for i in sys.argv[1].split("x"))
+    resolution = tuple(int(i) for i in sys.argv[1].split("x"))
     fps = int(sys.argv[2])
     # webcam(resolution, fps)
     picam(resolution, fps)
