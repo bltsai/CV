@@ -1,5 +1,7 @@
 # Performance testing
-You need opencv 3 to run the programs. For camera capture on Pi, you may need pip3 install picamera.
+You need opencv 3 to run the programs. For camera capture on Pi, you may need pip3 install picamera. You also need to pip3 install psutil
+
+## Camera capture test
 
 To test camera, please specify the resolution in the format WIDTHxHEIGHT like 1280x720 and frame per second like 15, 20, 30, etc.
 
@@ -7,7 +9,7 @@ To test camera, please specify the resolution in the format WIDTHxHEIGHT like 12
 python3 cam.py <WIDTH>x<HEIGHT> <FPS> [web or pic to choose webcam or picamera]
 ```
 
-Before running fast capture, you need to "sudo pip3 install psutil"
+To compare camera performance using thread or not,
 
 For usb webcam:
 ```bash
@@ -17,6 +19,8 @@ For picamera:
 ```bash
 python3 cam_piccam_speedup.py <WIDTH>x<HEIGHT> <FPS>
 ```
+
+## Tracking test
 
 To test tracking, you can use the videos in the team drive under Test/ folder
 
@@ -28,6 +32,8 @@ Note that the number means the index of the algorithm. 0:BOOSTING 1:MIL 2:KCF 3:
 ```bash
 python3 tracking.py [0-5] <FILENAME>
 ```
+
+## Detection test
 
 To test detection, you may change the object of interest by switching filepath argument in the CascadeClassifier. You can find default feature files in data/ folder.
 
