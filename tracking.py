@@ -1,5 +1,7 @@
 import cv2
-import sys
+import sys, os
+import psutil
+process = psutil.Process(os.getpid())
 
 (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
@@ -28,7 +30,7 @@ if __name__ == '__main__' :
             tracker = cv2.TrackerGOTURN_create()
 
     # Read video
-    video = cv2.VideoCapture(sys.argv[1]+".mp4")
+    video = cv2.VideoCapture(sys.argv[1])
     # video = cv2.VideoCapture(0)
 
     # Exit if video not opened.
@@ -43,10 +45,10 @@ if __name__ == '__main__' :
         sys.exit()
 
     # Define an initial bounding box
-    info = {"chaplin": (164, 23, 94, 295),
-            "street_360p": (111, 118, 15, 64),
-            "street_720p": (223, 236, 30, 128),
-            "street_1080p": (335, 354, 45, 192)
+    info = {"chaplin.mp4": (164, 23, 94, 295),
+            "street_360p.mp4": (111, 118, 15, 64),
+            "street_720p.mp4": (223, 236, 30, 128),
+            "street_1080p.mp4": (335, 354, 45, 192)
             }
 
     bbox = info[sys.argv[1]] if sys.argv[1] in info else cv2.selectROI(frame, False)
@@ -58,6 +60,8 @@ if __name__ == '__main__' :
     ok = tracker.init(frame, bbox)
 
     times = []
+    mem_usage = []
+    cpu_usage = []
     while True:
         # Read a new frame
         ok, frame = video.read()
@@ -73,6 +77,8 @@ if __name__ == '__main__' :
         # Calculate Frames per second (FPS)
         freq = cv2.getTickFrequency()
         count = (cv2.getTickCount() - timer)
+        mem_usage.append(process.memory_info()[0] / float(2 ** 20))
+        cpu_usage.append(process.cpu_percent())
 
         fps = freq / count
 
@@ -107,3 +113,5 @@ if __name__ == '__main__' :
 
     print("time", sum(times)/len(times))
     print("FPS", len(times)/sum(times))
+    print("[INFO] MEM usage: {:.2f}MiB".format(sum(mem_usage)/len(mem_usage)))
+    print("[INFO] CPU usage: {:.2f}%".format(sum(cpu_usage)/len(cpu_usage)))

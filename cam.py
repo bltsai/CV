@@ -9,7 +9,7 @@ def webcam(resolution, fps_set):
         print ("Could not open video")
         sys.exit()
 
-    video.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
+    # video.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
     video.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
     video.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
     # video.set(cv2.CAP_PROP_FPS, fps_set)
@@ -75,8 +75,8 @@ def picam(resolution, fps_set):
             times.append(count/freq)
 
             rawCapture.truncate(0)
-            # k = cv2.waitKey(1) & 0xff
-            # if k == 113 : break
+            k = cv2.waitKey(1) & 0xff
+            if k == 113 : break
 
             timer = cv2.getTickCount()
             if ((timer-start)/freq > 5.0): break
@@ -96,5 +96,7 @@ def picam(resolution, fps_set):
 if __name__ == '__main__' :
     resolution = tuple(int(i) for i in sys.argv[1].split("x"))
     fps = int(sys.argv[2])
-    # webcam(resolution, fps)
-    picam(resolution, fps)
+    if sys.argv[3] == "web":
+        webcam(resolution, fps)
+    elif sys.argv[3] == "pic":
+        picam(resolution, fps)

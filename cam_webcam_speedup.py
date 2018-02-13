@@ -116,7 +116,7 @@ class FPSCLOCK:
 
 
 resolution_in = (1280, 720)
-fps_in = 32
+fps_in = 30
 display_flag = 0
 num_seconds = 5
 mjpg_flag = False
@@ -213,5 +213,5 @@ def webcam():
 if __name__ == '__main__' :
     resolution_in = tuple(int(i) for i in sys.argv[1].split("x")) if len(sys.argv) >= 2 else resolution_in
     fps_in = int(sys.argv[2]) if len(sys.argv) >= 3 else 30
-    mjpg_flag = True if len(sys.argv) >= 4 else False
+    mjpg_flag = True if len(sys.argv) >= 4 and sys.argv[3] == "1" else False
     webcam()
