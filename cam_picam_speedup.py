@@ -122,15 +122,17 @@ class FPSCLOCK:
 
 resolution_in = (1280, 720)
 fps_in = 30
-display_flag = 0
+display_flag = False
 num_seconds = 10
 
 def picam():
     import picamera
     from picamera.array import PiRGBArray
     from picamera import PiCamera
-    cv2.namedWindow('Frame',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Frame', 800,600)
+
+    if display_flag:
+        cv2.namedWindow('Frame',cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Frame', 800,600)
 
     #  initialize the camera and stream
     camera = PiCamera()
@@ -161,9 +163,11 @@ def picam():
         # frame = imutils.resize(frame, width=400)
 
         # check to see if the frame should be displayed to our screen
-        if display_flag > 0:
+        if display_flag:
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
+            if key == 27:
+                break
 
         # clear the stream in preparation for the next frame and update
         # the FPSCLOCK counter
@@ -209,9 +213,11 @@ def picam():
         cpu_usage.append(process.cpu_percent())
 
         # check to see if the frame should be displayed to our screen
-        if display_flag> 0:
+        if display_flag:
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
+            if key == 27:
+                break
 
         # update the FPSCLOCK counter
         fps.update()

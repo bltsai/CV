@@ -3,18 +3,41 @@ import sys, os
 import psutil
 process = psutil.Process(os.getpid())
 
+isOpenWindow = False
 
 def detect(cascade, filename):
+    isFile = True
+    try:
+        filename = int(filename)
+        isFile = False
+    except:
+        pass
+
     camera = cv2.VideoCapture(filename)
-    cv2.namedWindow('image',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('image', 800,600)
+
+    if isFile:
+        total_frame = camera.get(cv2.CAP_PROP_FRAME_COUNT)
+
+    if isOpenWindow:
+        cv2.namedWindow('image',cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('image', 800,600)
+
     times = []
     mem_usage = []
     cpu_usage = []
+
+    print("ready")
+    frame_index = 1
     while True:
         (grabbed, frame) = camera.read()
+
+        if not grabbed:
+            print("\nVideo ended")
+            break
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
+
 
         # Start timer
         timer = cv2.getTickCount()
@@ -35,16 +58,23 @@ def detect(cascade, filename):
 
         if rects != ():
             times.append(count/freq)
-            print(rects, count/freq, freq/count)
+            print("\n", rects, count/freq, freq/count)
 
-        # for (fX, fY, fW, fH) in rects:
-        #     # print("{} - {} - {} - {}".format(fX, fY, fW, fH))
-        #     cv2.rectangle(frame, (fX, fY), (fX+ fW, fY + fH), (0, 0, 255), 3)
+        if isOpenWindow:
+            for (fX, fY, fW, fH) in rects:
+                # print("{} - {} - {} - {}".format(fX, fY, fW, fH))
+                cv2.rectangle(frame, (fX, fY), (fX+ fW, fY + fH), (0, 0, 255), 3)
 
-        # cv2.imshow("image", frame)
+            cv2.imshow("image", frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        if isFile:
+            print("\r %.2f%% (%d/%d)" % (100.0*frame_index/total_frame, frame_index, total_frame), end="")
+
+        frame_index += 1
+
+        if isOpenWindow:
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
 
     camera.release()
     cv2.destroyAllWindows()
@@ -62,7 +92,7 @@ else:
 
 times, mem_usage, cpu_usage = detect(cascade,filename)
 
-print("time", sum(times)/len(times))
+print("\ntime", sum(times)/len(times))
 print("FPS", len(times)/sum(times))
 print("[INFO] MEM usage: {:.2f}MiB".format(sum(mem_usage)/len(mem_usage)))
 print("[INFO] CPU usage: {:.2f}%".format(sum(cpu_usage)/len(cpu_usage)))

@@ -117,7 +117,7 @@ class FPSCLOCK:
 
 resolution_in = (1280, 720)
 fps_in = 30
-display_flag = 0
+display_flag = False
 num_seconds = 5
 mjpg_flag = False
 
@@ -150,9 +150,10 @@ def webcam():
         cpu_usage.append(process.cpu_percent())
 
         # check to see if the frame should be displayed to our screen
-        if display_flag > 0:
+        if display_flag:
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
+            if key == 27: break
 
         # update the FPS counter
         fps.update()
@@ -189,9 +190,11 @@ def webcam():
         cpu_usage.append(process.cpu_percent())
 
         # check to see if the frame should be displayed to our screen
-        if display_flag > 0:
+        if display_flag:
             cv2.imshow("Frame", frame)
             key = cv2.waitKey(1) & 0xFF
+            if key == 27:
+                break
 
         # update the FPS counter
         fps.update()
