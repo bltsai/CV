@@ -64,7 +64,7 @@ class FlightControlThread:
 
 
 def output(status, message):
-    outputstream.sendto(("{} {}".format(status, message)).encode(), OSERVER_ADDR)
+    outputstream.sendto(json.dumps({"src":"fcs", "status": status, "msg":message}).encode(), OSERVER_ADDR)
 
 
 if __name__ == "__main__":
