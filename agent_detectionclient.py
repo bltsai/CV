@@ -35,6 +35,65 @@ def recv_into(source):
     return frame_id, frame_w, frame_h, arr
 
 
+def send_from(frame_id, arr, dest):
+    msg = struct.pack(FORMAT, frame_id, res[0], res[1], arr.shape[0])
+    dest.send(msg)
+    view = memoryview(arr).cast('B')
+    while len(view):
+        nsent = dest.send(view)
+        view = view[nsent:]
+
+class ThirdPartyThread:
+    def __init__(self):
+
+        self.stopped = False
+
+    def start(self):
+        # start the thread to read frames from the video stream
+        self.t = Thread(target=self.update, args=())
+        self.t.start()
+        return self
+
+    def update(self):
+        while not self.stopped:
+            try:
+                third_party_socket = socket(AF_INET, SOCK_STREAM)
+                third_party_socket.connect(THIRDSERVER_ADDR)
+                print("\n\n[INFO] Detection client connecting to 3rd party...", end="")
+                print("ready")
+                output(0, "3rd party server connected")
+                break
+            except Exception as e:
+                # print("failed")
+                # msg = traceback.format_exc()
+                # output(1, msg)
+                # print(msg)
+                time.sleep(1)
+
+        # keep looping infinitely until the thread is stopped
+        with third_party_socket:
+            try:
+                while not self.stopped:
+                    frame_id, max_rect, buf = g_queue.get()
+                    if max_rect is not None:
+                        fX, fY, fW, fH = max_rect
+                        cv2.rectangle(buf, (fX, fY), (fX+ fW, fY + fH), (0, 0, 255), 3)
+                        encoded, buf = cv2.imencode('.jpg', buf, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+                    send_from(frame_id, buf, third_party_socket)
+
+            except Exception:
+                msg = traceback.format_exc()
+                output(1, msg)
+                print(msg)
+
+
+    def stop(self):
+        # indicate that the thread should be stopped
+        self.stopped = True
+        self.t.join()
+
+
 # times = {'recv':[0.0, 0], 'decode':[0.0, 0], 'graystyle':[0.0, 0], 'detect':[0.0, 0], 'send':[0.0, 0]}
 def detection():
     cascade = cv2.CascadeClassifier(CASCADE_FILE)
@@ -56,54 +115,62 @@ def detection():
     # cv2.namedWindow('image',cv2.WINDOW_NORMAL)
     # cv2.resizeWindow('image', 800,600)
     output(2, "detection running")
-    try:
-        while True :#not event.isSet():
-            frame_id, frame_w, frame_h, a = recv_into(video_socket)
 
-            # start = time.time()
-            frame = cv2.imdecode(a, 1)
+    with video_socket:
+        try:
+            global res
+            while True :#not event.isSet():
+                frame_id, frame_w, frame_h, a = recv_into(video_socket)
+                # start = time.time()
+                frame = cv2.imdecode(a, 1)
 
-            # times['decode'][0] += (time.time()-start); times['decode'][1] += 1
+                res = (frame_w, frame_h)
 
-            # start = time.time()
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            gray = cv2.equalizeHist(gray)
-
-
-            # times['graystyle'][0] += (time.time()-start); times['graystyle'][1] += 1
-
-            # start = time.time()
-            rects = cascade.detectMultiScale(gray,
-                scaleFactor = 1.1,
-                # minNeighbors = 5,
-                minNeighbors = 5,
-                # minSize = (5, 10),
-                # maxSize = (450,720),
-                flags = 1)#0|cv2.CASCADE_SCALE_IMAGE)
-            # times['detect'][0] += (time.time()-start); times['detect'][1] += 1
-
-            if rects != ():
-                max_rect_size = 0
-                max_rect = None
-                for rect in rects:
-                    fX, fY, fW, fH = rect
-                    # print("{} - {} - {} - {}".format(fX, fY, fW, fH))
-                    # cv2.rectangle(frame, (fX, fY), (fX+ fW, fY + fH), (0, 0, 255), 3)
-                    if fW * fH > max_rect_size:
-                        max_rect = rect
+                # times['decode'][0] += (time.time()-start); times['decode'][1] += 1
 
                 # start = time.time()
-                # fcs_queue.put_nowait((frame_id, frame_w, frame_h, max_rect))
-                fcs_send(frame_id, frame_w, frame_h, max_rect)
-                # times['send'][0] += (time.time()-start); times['send'][1] += 1
-            # cv2.imshow("image", frame)
-            # cv2.waitKey(1)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                gray = cv2.equalizeHist(gray)
 
-    except Exception as e:
-        msg = traceback.format_exc()
-        output(1, msg)
-        print(msg)
-        cv2.destroyAllWindows()
+
+                # times['graystyle'][0] += (time.time()-start); times['graystyle'][1] += 1
+
+                # start = time.time()
+                rects = cascade.detectMultiScale(gray,
+                    scaleFactor = 1.1,
+                    # minNeighbors = 5,
+                    minNeighbors = 20,
+                    minSize = (50, 50),
+                    # maxSize = (450,720),
+                    flags = 1)#0|cv2.CASCADE_SCALE_IMAGE)
+                # times['detect'][0] += (time.time()-start); times['detect'][1] += 1
+
+                if rects != ():
+                    max_rect_size = 0
+                    max_rect = None
+                    for rect in rects:
+                        fX, fY, fW, fH = rect
+                        # print("{} - {} - {} - {}".format(fX, fY, fW, fH))
+                        # cv2.rectangle(frame, (fX, fY), (fX+ fW, fY + fH), (0, 0, 255), 3)
+                        if fW * fH > max_rect_size:
+                            max_rect = rect
+
+                    # start = time.time()
+                    # fcs_queue.put_nowait((frame_id, frame_w, frame_h, max_rect))
+                    fcs_send(frame_id, frame_w, frame_h, max_rect)
+                    # times['send'][0] += (time.time()-start); times['send'][1] += 1
+                    g_queue.put_nowait((frame_id, max_rect, frame))
+                else:
+                    g_queue.put_nowait((frame_id, None, a))
+
+                # cv2.imshow("image", frame)
+                # cv2.waitKey(1)
+
+        except Exception as e:
+            msg = traceback.format_exc()
+            output(1, msg)
+            print(msg)
+            cv2.destroyAllWindows()
 
 # status_queue = Queue()
 def output(status, message):
@@ -149,18 +216,20 @@ def fcs_send(frame_id, frame_w, frame_h, max_rect):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 8:
-        print("Usage: ./program VideoServerHost VSPort CasscadeFile FlightControlServerHost FCSPort OutputServerHost OSPort")
+    if len(sys.argv) < 10:
+        print("Usage: ./program VideoServerHost VSPort CasscadeFile FlightControlServerHost FCSPort OutputServerHost OSPort 3rdPartyServerHost 3rdPartyPort")
         exit()
 
     FCSERVER_ADDR = (sys.argv[4], int(sys.argv[5]))
     OSERVER_ADDR = (sys.argv[6], int(sys.argv[7]))#'192.168.10.1', 25000
     VSERVER_ADDR = (sys.argv[1], int(sys.argv[2]))
+    THIRDSERVER_ADDR = (sys.argv[8], int(sys.argv[9]))
+
     CASCADE_FILE = sys.argv[3]
+    g_queue = Queue()
 
 
-    # d_event = Event()
-    # Thread(target=status_update_thread, args=()).start()
+    tpt = ThirdPartyThread().start()
     outputstream = socket(AF_INET, SOCK_DGRAM)
     fcsstream = socket(AF_INET, SOCK_DGRAM)
     output(0, "threads up")
