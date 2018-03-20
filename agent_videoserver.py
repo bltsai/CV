@@ -1,12 +1,17 @@
 # import the necessary packages
 from threading import Thread
+import picamera
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+
 import cv2
 import sys
 import math
+import base64
 
-from socket import *
+# from socket import *
 from queue import Queue
-import socketserver
+# import socketserver
 import struct
 import time
 import traceback
@@ -28,7 +33,7 @@ class WebcamVideoStream:
         # initialize the variable used to indicate if the thread should
         # be stopped
         self.stopped = False
-        output(0, "webcam up")
+        output("INFO","webcam up")
 
     def start(self):
         # start the thread to read frames from the video stream
@@ -51,8 +56,7 @@ class WebcamVideoStream:
 
             except Exception as e:
                 msg = traceback.format_exc()
-                output(1, msg)
-                print(msg)
+                output("ERROR", msg)
                 break
 
     def _read(self):
@@ -60,9 +64,9 @@ class WebcamVideoStream:
         frame_id = math.trunc(time.time()*1000)
         frame = cv2.flip(frame, -1)
         if not grabbed:
-            print("not grabbed")
-            output(1, "webcam not grabbed")
+            output("ERROR", "webcam not grabbed")
             self.stop()
+            return (None, None)
 
         return (frame_id, frame)
 
@@ -77,107 +81,109 @@ class WebcamVideoStream:
         self.stream.release()
 
 
+class PiVideoStream:
+
+    def __init__(self, resolution_in=(640, 480), framerate=30):
+        # initialize the camera and stream
+        self.camera = PiCamera()
+        self.camera.resolution = resolution_in
+        self.camera.framerate = framerate
+        self.rawCapture = PiRGBArray(self.camera, size=resolution_in)
+        self.stream = self.camera.capture_continuous(self.rawCapture, format="bgr", use_video_port=True)
+
+        # initialize the frame and the variable used to indicate
+        # if the thread should be stopped
+        self.frame_pack = (None, None)
+        self.stopped = False
+        output("INFO","picam up")
+
+
+    def start(self):
+        # start the thread to read frames from the video stream
+        Thread(target=self.update, args=()).start()
+        return self
+
+    def update(self):
+        # keep looping infinitely until the thread is stopped
+        time.sleep(2.0)
+        try:
+            for f in self.stream:
+                frame_id = math.trunc(time.time()*1000)
+                self.frame_pack = (frame_id, f.array)
+
+                self.rawCapture.truncate(0)
+
+                # if the thread indicator variable is set, stop the thread
+                # and resource camera resources
+                if self.stopped:
+                    break
+
+        except KeyboardInterrupt:
+            output("ERROR", "Ctrl-C")
+            graceful_shutdown()
+
+        except Exception as e:
+            output("ERROR", traceback.format_exc())
+            graceful_shutdown()
+
+    def read(self):
+        # return the frame most recently read
+        return self.frame_pack
+
+    def stop(self):
+        # indicate that the thread should be stopped
+        self.stopped = True
+
+        self.stream.close()
+        self.rawCapture.close()
+        self.camera.close()
+
+def output(t, message):
+    j_str = json.dumps({"type": "VS_"+t, "message":message})
+    print(j_str, flush=True)
+
 FORMAT = "!QHHI"
-def send_from(frame_id, arr, dest):
-    msg = struct.pack(FORMAT, frame_id, res[0], res[1], arr.shape[0])
-    dest.send(msg)
-    view = memoryview(arr).cast('B')
-    while len(view):
-        nsent = dest.send(view)
-        view = view[nsent:]
-
-# class MyTCPHandler(socketserver.BaseRequestHandler):
-
-#     def handle(self):
-#         # self.request is the TCP socket connected to the client
-#         previous_frame_id = None
-#         global times, count
-#         while True:
-#             try:
-#                 frame_id, frame = vs.read()
-#                 if previous_frame_id == frame_id:
-#                     continue
-
-#                 encoded, buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 98])
-#                 send_from(frame_id, buf, self.request)
-#                 previous_frame_id = frame_id
-#                 times.append((time.time()-frame_id/1000))
-
-#             except Exception as e:
-#                 msg = traceback.format_exc() + "Bye bye " + self.client_address[0]
-#                 output(1, msg)
-#                 break
-
-
-
-def output(status, message):
-    outputstream.sendto(json.dumps({"src":"videoserver", "status": status, "msg":message}).encode(), OSERVER_ADDR)
+def send_from(frame_id, arr):
+    header = struct.pack(FORMAT, frame_id, res[0], res[1], arr.shape[0])
+    payload = memoryview(arr).cast('B').tobytes()
+    output("FRAME", base64.b64encode(header+payload))
 
 def graceful_shutdown():
-    # status_queue.put(None)
-    # server.shutdown()
-    # server.server_close()
-    server.close()
-    print("\n\n[INFO] stopped video capture server...")
-    output(1, "server down")
-    # cv2.destroyAllWindows()
+    output("INFO", "going down")
     vs.stop()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 6:
-        print("Usage: ./program ServerHost ServerPort WIDTHxHEIGHT OutputHost OutputPort")
-        exit()
-    # Thread(target=status_update_thread, args=()).start()
-    outputstream = socket(AF_INET, SOCK_DGRAM)
+    if len(sys.argv) < 2:
+        output("USAGE", "./program WIDTHxHEIGHT")
+        # exit()
+        res = (640, 480)
+    else:
+        res = tuple(int(i) for i in sys.argv[1].split("x"))
 
-    HOST, PORT = sys.argv[1], int(sys.argv[2])#'192.168.10.1', 25000
-    res = tuple(int(i) for i in sys.argv[3].split("x"))
-    OSERVER_ADDR = (sys.argv[4], int(sys.argv[5]))#'192.168.10.1', 25000
-
-    print("\n\n[INFO] sampling THREADED frames from webcam...")
-    vs = WebcamVideoStream(src=0, resolution_in=res).start()
+    # vs = WebcamVideoStream(src=0, resolution_in=res).start()
     # vs = WebcamVideoStream(src=0, resolution_in=res)
+    vs = PiVideoStream(resolution_in=res).start()
 
-    print("\n\n[INFO] starting video capture server...")
-    # server = socketserver.TCPServer((HOST, PORT), MyTCPHandler)
-    server = socket(AF_INET, SOCK_STREAM)
-    server.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    server.bind((HOST, PORT))
-    server.listen(1)
-
-    output(2, "videoserver running")
-    print("videoserver running")
+    output("INFO", "running")
     try:
-        # server.serve_forever()
-        conn, addr = server.accept()
-        print("client connected")
-        with conn:
-            previous_frame_id = None
-            while True:
-                frame_id, frame = vs.read()
-                if previous_frame_id == frame_id:
-                    time.sleep(0.01)
-                    continue
+        while True:
+            # frame_id, frame = vs._read()
+            frame_id, frame = vs.read()
+            if previous_frame_id == frame_id:
+                time.sleep(0.01)
+                continue
 
-                # frame_id, frame = vs._read()
-                # print(frame_id)
+            frame = cv2.flip(frame, -1)
 
-                encoded, buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 98])
-                # times['imencode'][0] += (time.time()-frame_id/1000); times['imencode'][1] += 1
-                send_from(frame_id, buf, conn)
-                previous_frame_id = frame_id
-                # times['send'][0] += (time.time()-frame_id/1000); times['send'][1] += 1
+            encoded, buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 98])
+            send_from(frame_id, buf)
+            previous_frame_id = frame_id
 
     except KeyboardInterrupt:
-        print("Ctrl-C")
+        output("ERROR", "Ctrl-C")
 
     except Exception as e:
-        msg = traceback.format_exc() + "Bye bye " + addr[0]
-        output(1, msg)
-        print(msg)
+        output("ERROR", traceback.format_exc())
     finally:
         graceful_shutdown()
-
-    # for t in times:
-    #     ts = times[t]
-    #     print("latency from frame_id till ", t, ts[0]/ts[1])
+        output("INFO", "Bye bye")
