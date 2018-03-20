@@ -1,8 +1,11 @@
 # import the necessary packages
 from threading import Thread
-import picamera
-from picamera.array import PiRGBArray
-from picamera import PiCamera
+try:
+    import picamera
+    from picamera.array import PiRGBArray
+    from picamera import PiCamera
+except:
+    pass
 
 import cv2
 import sys
@@ -28,7 +31,7 @@ class WebcamVideoStream:
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, resolution_in[0])
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution_in[1])
 
-        self.stream.read()
+        self.frame_pack = self._read()
 
         # initialize the variable used to indicate if the thread should
         # be stopped
@@ -146,10 +149,10 @@ FORMAT = "!QHHI"
 def send_from(frame_id, arr):
     header = struct.pack(FORMAT, frame_id, res[0], res[1], arr.shape[0])
     payload = memoryview(arr).cast('B').tobytes()
-    output("FRAME", base64.b64encode(header+payload))
+    output("FRAME", base64.b64encode(header+payload).decode())
 
 def graceful_shutdown():
-    output("INFO", "going down")
+    output("ERROR", "going down")
     vs.stop()
 
 if __name__ == "__main__":
@@ -160,12 +163,16 @@ if __name__ == "__main__":
     else:
         res = tuple(int(i) for i in sys.argv[1].split("x"))
 
-    # vs = WebcamVideoStream(src=0, resolution_in=res).start()
-    # vs = WebcamVideoStream(src=0, resolution_in=res)
-    vs = PiVideoStream(resolution_in=res).start()
+    try:
+        vs = PiVideoStream(resolution_in=res).start()
+    except:
+        vs = WebcamVideoStream(src=0, resolution_in=res).start()
+        # vs = WebcamVideoStream(src=0, resolution_in=res)
+
 
     output("INFO", "running")
     try:
+        previous_frame_id = None
         while True:
             # frame_id, frame = vs._read()
             frame_id, frame = vs.read()
@@ -184,6 +191,6 @@ if __name__ == "__main__":
 
     except Exception as e:
         output("ERROR", traceback.format_exc())
-    finally:
-        graceful_shutdown()
-        output("INFO", "Bye bye")
+
+    graceful_shutdown()
+    output("INFO", "Bye bye")

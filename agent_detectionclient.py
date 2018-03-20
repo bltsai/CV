@@ -5,6 +5,7 @@ import time
 import sys
 import json
 import traceback
+import base64
 
 
 FORMAT = "!QHHI"
@@ -16,10 +17,10 @@ def recv_into():
         j_str = sys.stdin.readline().strip('\n')
         d = json.loads(j_str)
         if "FRAME" not in d["type"]:
-            output("ERROR", "received is not of type *_FRAME but %s"%d["type"])
+            output("WARNING", "received is not of type *_FRAME but %s"%d["type"])
             return (None,)*4
 
-        msg = base64.b64decode(d["message"])
+        msg = base64.b64decode(str.encode(d["message"]))
         header = msg[:INT_SIZE]
         payload = msg[INT_SIZE:]
         frame_id, frame_w, frame_h, shape_w = struct.unpack(FORMAT, header)
@@ -29,7 +30,7 @@ def recv_into():
         view[:] = payload
 
     except Exception as e:
-        output("ERROR", traceback.format_exc())
+        output("WARNING", traceback.format_exc(), j_str)
         return (None,)*4
 
     return frame_id, frame_w, frame_h, arr
@@ -43,6 +44,7 @@ def detection():
         while True :
 
             frame_id, frame_w, frame_h, a = recv_into()
+            if a is None: continue
             # start = time.time()
             frame = cv2.imdecode(a, 1)
 
@@ -76,7 +78,7 @@ def detection():
 
                 send_str = struct.pack(BBOX_FORMAT, frame_id, frame_w, frame_h, fX, fY, fW, fH)
 
-            output("BBOX", base64.b64encode(send_str))
+            output("BBOX", base64.b64encode(send_str).decode())
 
 
             # cv2.imshow("image", frame)
@@ -87,7 +89,7 @@ def detection():
         # cv2.destroyAllWindows()
 
 def output(t, message):
-    j_str = json.dumps({"type": "DT_"+t, "message":message})
+    j_str = json.dumps({"type": "DT_"+t, "message":str(message)})
     print(j_str, flush=True)
 
 if __name__ == "__main__":
